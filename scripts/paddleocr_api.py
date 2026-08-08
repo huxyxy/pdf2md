@@ -18,7 +18,7 @@ log = logging.getLogger("paddleocr_api")
 
 OPTIONAL_PAYLOAD = {
     # 服务端过滤页眉/页码等辅助内容（官方「辅助内容解析」）
-    "markdownIgnoreLabels": ["header_image", "header", "number"],
+    "markdownIgnoreLabels": ["header", "footer", "header_image", "footer_image", "number", "aside_text"],
     "useDocOrientationClassify": True,
     "useDocUnwarping": True,
     "useLayoutDetection": True,
