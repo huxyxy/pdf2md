@@ -31,7 +31,7 @@ cd pdf2md
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install -U pip
-python3 -m pip install requests pypdfium2 pillow
+python3 -m pip install -r requirements.txt
 ```
 
 复制环境变量模板：
@@ -115,6 +115,7 @@ work/example/vision/fig01.json
 {
   "fig_id": "fig01",
   "action": "describe",
+  "evidence": "从图中实际看到的依据（如：纵轴刻度0-300，2024年柱最高）",
   "result": "图表中可见的趋势、差异或结构。"
 }
 ```
