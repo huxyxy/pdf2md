@@ -2,7 +2,7 @@
 
 将研报、募集及财报等金融 PDF 转换为结构清晰的 Markdown。
 
-项目使用 PaddleOCR-VL 解析 PDF，再由 AI 逐图分析图表，最后由脚本完成校验和组装。
+这是一个由 AI Agent 驱动的应用：脚本负责 OCR、清洗、裁剪和最终组装，AI Agent 负责多篇 PDF 的流程编排、图表视觉分析和结果复核。完整流程需要在能够读取本仓库文件并执行命令的 AI Agent 下运行；只单独运行 Python 脚本，无法完成图表分析和多篇文档调度。
 
 ## 功能
 
@@ -52,7 +52,26 @@ PADDLEOCR_JOB_URL=https://paddleocr.aistudio-app.com/api/v2/ocr/jobs
 
 ## 使用方法
 
-### 1. 放入 PDF
+### 推荐方式：交给 AI Agent 执行
+
+1. 将需要处理的全部 PDF 放入 `input/`。
+2. 在项目根目录启动 AI Agent。
+3. 将下面的 Prompt 原样发送给 Agent：
+
+```text
+先阅读 skills/pdf2md/SKILL.md 并严格按其中的流程执行：
+处理 input/ 下的全部 PDF。按 SKILL.md 的多篇并行节奏推进：
+先连续 submit 全部文件，谁先解析完就处理谁，等待 fetch 的间隙去做上一篇的视觉分析。
+每篇工作目录为 work/{文件名}/，产出到 output/。
+视觉分析必须遵守第④节协议和反幻觉负面清单；assemble 校验失败时只重做被点名的图。
+全部完成后逐篇按自查清单核对并汇报结果。
+```
+
+Agent 应先阅读 [`skills/pdf2md/SKILL.md`](skills/pdf2md/SKILL.md)，并严格遵守其中的视觉分析协议、反幻觉负面清单和产出自查标准。
+
+### 脚本流程（由 Agent 调度）
+
+#### 1. 放入 PDF
 
 把待处理的 PDF 放入 `input/`，例如：
 
@@ -62,19 +81,19 @@ input/example.pdf
 
 `input/` 中的原始文件只读取，不会被程序修改。
 
-### 2. 提交 OCR 任务
+#### 2. 提交 OCR 任务
 
 ```bash
 python3 scripts/paddleocr_api.py submit "input/example.pdf" "work/example"
 ```
 
-### 3. 等待并下载 OCR 结果
+#### 3. 等待并下载 OCR 结果
 
 ```bash
 python3 scripts/paddleocr_api.py fetch "work/example"
 ```
 
-### 4. 清洗正文并裁剪图表
+#### 4. 清洗正文并裁剪图表
 
 ```bash
 python3 scripts/prepare.py "work/example"
@@ -82,7 +101,7 @@ python3 scripts/prepare.py "work/example"
 
 这一步会生成 `draft.md`、`figures.json` 和图表裁剪图。
 
-### 5. 分析图表
+#### 5. 分析图表
 
 读取 `work/example/figures.json`，逐个分析 `figures/` 中的图表，并为每个图表创建：
 
@@ -109,7 +128,7 @@ work/example/vision/fig01.json
 
 详细规则见 [`skills/pdf2md/SKILL.md`](skills/pdf2md/SKILL.md)。
 
-### 6. 校验并组装 Markdown
+#### 6. 校验并组装 Markdown
 
 ```bash
 python3 scripts/assemble.py "work/example"
