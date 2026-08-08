@@ -16,7 +16,7 @@ import pypdfium2 as pdfium
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s", stream=sys.stderr)
 log = logging.getLogger("prepare")
 
-DROP_LABELS = {"header_image", "number"}  # header 在目录页抢救逻辑外也丢弃
+DROP_LABELS = {"header", "footer", "header_image", "footer_image", "number", "aside_text"}  # 官方 23 类版面标签中的辅助内容
 SENTENCE_END = tuple("。！？；：”）】.!?;:")
 RENDER_SCALE = 2  # 与 bbox 坐标系一致（1191x1684）
 CROP_PAD = 10
@@ -118,15 +118,15 @@ def is_toc_page(blocks: list) -> bool:
     return any(b["label"] == "content" for b in blocks)
 
 
-def salvage_toc_page(blocks: list) -> list:
+def salvage_toc_page(blocks: list, page_idx: int) -> list:
     """目录页：保留第一个 content 块之前的标题类块（文档名/作者），丢弃目录本体。"""
     keep = []
     for b in blocks:
         if b["label"] == "content":
             break
-        if b["label"] in ("paragraph_title", "text"):
+        if b["label"] in ("paragraph_title", "text", "doc_title"):
             keep.append(b)
-        elif b["label"] == "header":  # 兼容日期或团队标识
+        elif b["label"] == "header" and page_idx == 0:  # 封面作者/日期行；后续页的 header 是页眉
             keep.append({**b, "label": "text"})
     # 标题'目录'/'表目录'本身不要
     return [b for b in keep if b["content"].strip() not in ("目录", "表目录")]
@@ -191,7 +191,9 @@ def render_units(units: list, figures: list) -> str:
     for u in units:
         if u["type"] == "block":
             b = u["block"]
-            if b["label"] == "paragraph_title":
+            if b["label"] == "doc_title":
+                out.append("# " + b["content"].strip())
+            elif b["label"] == "paragraph_title":
                 level = 1 if not out else heading_level(b["content"])  # 全文首个标题=文档名 H1
                 out.append("#" * level + " " + b["content"].strip())
             elif b["label"] == "table":
@@ -261,7 +263,7 @@ def prepare(work_dir: str) -> None:
     if not os.path.exists(pdf_path):  # 迁移机器后绝对路径失效，回退 input/ 同名文件
         pdf_path = os.path.join(os.path.dirname(__file__), "..", "input", os.path.basename(pdf_path))
     pages = load_pages(work_dir)
-    kept_pages = [salvage_toc_page(p) if is_toc_page(p) else p for p in pages]
+    kept_pages = [salvage_toc_page(p, i) if is_toc_page(p) else p for i, p in enumerate(pages)]
     stream = stitch_pages(kept_pages)
     with open(os.path.join(work_dir, "blocks.json"), "w", encoding="utf-8") as f:
         json.dump([{**b, "page": i} for i, b in stream], f, ensure_ascii=False, indent=1)
