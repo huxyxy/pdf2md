@@ -25,7 +25,7 @@
 以下命令以 Linux、macOS 或 WSL 为例。Windows 用户可以把 `python3` 换成 `python`。
 
 ```bash
-git clone https://github.com/你的用户名/pdf2md.git
+git clone https://github.com/huxyxy/pdf2md.git
 cd pdf2md
 
 python3 -m venv .venv
