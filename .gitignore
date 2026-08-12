@@ -24,8 +24,12 @@ venv/
 htmlcov/
 
 # 本地工具、编辑器和系统文件
+# Agent 工具和项目本地协作文件不纳入仓库。
 .pi/
 AGENTS.md
+skills-lock.json
+.agents/
+.claude/
 .vscode/
 .idea/
 .DS_Store
