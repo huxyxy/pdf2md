@@ -122,7 +122,7 @@ def assemble(work_dir: str) -> str:
     assert "{{FIG:" not in md, "有图表占位未替换"
 
     name = os.path.splitext(os.path.basename(
-        json.load(open(os.path.join(work_dir, "job.json")))["pdf"]))[0]
+        json.load(open(os.path.join(work_dir, "job.json"), encoding="utf-8"))["pdf"]))[0]
     out_dir = os.path.join(os.path.dirname(__file__), "..", "output")
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, name + ".md")
