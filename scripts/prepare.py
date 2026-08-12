@@ -56,7 +56,7 @@ class _TableParser(HTMLParser):
             self.row = None
 
 
-def html_table_to_md(html: str) -> str:
+def html_table_to_md(html: str, has_title: bool = False) -> str:
     p = _TableParser()
     p.feed(html)
     if not p.rows:
@@ -89,7 +89,9 @@ def html_table_to_md(html: str) -> str:
     rows = [r + [""] * (width - len(r)) for r in grid]
     caption = ""
     if width > 1 and len(rows) > 1 and len(set(rows[0])) == 1 and rows[0][0]:
-        caption, rows = "**" + rows[0][0] + "**\n\n", rows[1:]  # 整行跨列表头提升为加粗标题行
+        if not has_title:
+            caption = "**" + rows[0][0] + "**\n\n"
+        rows = rows[1:]  # 整行跨列表头提升为加粗标题行
     esc = lambda s: s.replace("|", "\\|")
     lines = ["| " + " | ".join(esc(c) for c in rows[0]) + " |",
              "|" + "---|" * width]
@@ -163,16 +165,36 @@ def group_stream(stream: list) -> list:
         page, b = stream[i]
         if b["label"] == "figure_title":
             bodies, notes, j = [], [], i + 1
+            seen_notes = set()
             while j < len(stream) and stream[j][1]["label"] in FIG_BODY | {"vision_footnote"}:
                 nb = stream[j][1]
-                (bodies if nb["label"] in FIG_BODY else notes).append(nb)
+                if nb["label"] in FIG_BODY:
+                    bodies.append(nb)
+                else:
+                    norm = " ".join(nb["content"].split())
+                    if norm not in seen_notes:
+                        seen_notes.add(norm)
+                        notes.append(nb)
                 j += 1
             bodies.sort(key=lambda x: (x["bbox"][1], x["bbox"][0]))
             units.append({"type": "figure", "page": page, "title": b, "bodies": bodies, "notes": notes})
             i = j
         elif b["label"] in ("chart", "image"):  # 无标题的孤儿图
-            units.append({"type": "figure", "page": page, "title": None, "bodies": [b], "notes": []})
-            i += 1
+            bodies, notes, j = [b], [], i + 1
+            seen_notes = set()
+            while j < len(stream) and stream[j][1]["label"] in FIG_BODY | {"vision_footnote"}:
+                nb = stream[j][1]
+                if nb["label"] in FIG_BODY:
+                    bodies.append(nb)
+                else:
+                    norm = " ".join(nb["content"].split())
+                    if norm not in seen_notes:
+                        seen_notes.add(norm)
+                        notes.append(nb)
+                j += 1
+            bodies.sort(key=lambda x: (x["bbox"][1], x["bbox"][0]))
+            units.append({"type": "figure", "page": page, "title": None, "bodies": bodies, "notes": notes})
+            i = j
         else:
             units.append({"type": "block", "page": page, "block": b})
             i += 1
@@ -212,8 +234,9 @@ def render_units(units: list, figures: list) -> str:
                 parts.append("{{FIG:" + fig_id + "}}")
             for t in table_bodies:
                 out.append("\n\n".join(parts))
+                has_title = bool(parts)
                 parts = []
-                out.append(html_table_to_md(t["content"]))
+                out.append(html_table_to_md(t["content"], has_title=has_title))
             for n in u["notes"]:
                 parts.append("> " + " ".join(n["content"].split()))
             out.append("\n\n".join(parts))
@@ -259,7 +282,7 @@ def add_context(stream: list, figures: list) -> None:
 
 
 def prepare(work_dir: str) -> None:
-    pdf_path = json.load(open(os.path.join(work_dir, "job.json")))["pdf"]
+    pdf_path = json.load(open(os.path.join(work_dir, "job.json"), encoding="utf-8"))["pdf"]
     if not os.path.exists(pdf_path):  # 迁移机器后绝对路径失效，回退 input/ 同名文件
         pdf_path = os.path.join(os.path.dirname(__file__), "..", "input", os.path.basename(pdf_path))
     pages = load_pages(work_dir)
