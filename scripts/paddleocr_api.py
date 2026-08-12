@@ -88,7 +88,7 @@ def submit(pdf_path: str, work_dir: str) -> str:
     job_file = os.path.join(work_dir, "job.json")
     if os.path.exists(job_file):
         log.info("已提交过，复用 %s", job_file)
-        return json.load(open(job_file))["jobId"]
+        return json.load(open(job_file, encoding="utf-8"))["jobId"]
     data = {"model": ENV["PADDLEOCR_MODEL"], "optionalPayload": json.dumps(OPTIONAL_PAYLOAD)}
     with open(pdf_path, "rb") as f:
         resp = request_with_retry("POST", ENV["PADDLEOCR_JOB_URL"], headers=headers(),
@@ -96,7 +96,7 @@ def submit(pdf_path: str, work_dir: str) -> str:
     if resp.status_code != 200:
         raise SystemExit(f"提交失败 {resp.status_code}: {resp.text[:500]}")
     job_id = resp.json()["data"]["jobId"]
-    with open(job_file, "w") as f:
+    with open(job_file, "w", encoding="utf-8") as f:
         json.dump({"jobId": job_id, "pdf": os.path.abspath(pdf_path)}, f, ensure_ascii=False)
     log.info("jobId: %s", job_id)
     return job_id
@@ -108,7 +108,7 @@ def fetch(work_dir: str, poll: bool = True) -> bool:
     if os.path.exists(out):
         log.info("raw.jsonl 已存在，跳过")
         return True
-    job_id = json.load(open(os.path.join(work_dir, "job.json")))["jobId"]
+    job_id = json.load(open(os.path.join(work_dir, "job.json"), encoding="utf-8"))["jobId"]
     url = f"{ENV['PADDLEOCR_JOB_URL']}/{job_id}"
     while True:
         resp = request_with_retry("GET", url, headers=headers())
@@ -134,6 +134,15 @@ def fetch(work_dir: str, poll: bool = True) -> bool:
 
 def main() -> None:
     cmd = sys.argv[1]
+
+    if cmd in ("submit", "fetch"):
+        # 提取文档名：对于 submit 是 pdf_path，对于 fetch 是 work_dir
+        name = os.path.splitext(os.path.basename(sys.argv[2].rstrip("\\/")))[0]
+        out_path = os.path.join(os.path.dirname(__file__), "..", "output", f"{name}.md")
+        if os.path.exists(out_path):
+            log.info("产物已存在，跳过此篇: %s", out_path)
+            sys.exit(0)
+
     if cmd == "submit":
         submit(sys.argv[2], sys.argv[3])
     elif cmd == "fetch":
